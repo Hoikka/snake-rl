@@ -2,8 +2,7 @@
 # useful to study different iterations
 
 import numpy as np
-from agent import DeepQLearningAgent, PolicyGradientAgent, \
-        AdvantageActorCriticAgent, HamiltonianCycleAgent, BreadthFirstSearchAgent
+from agent import DeepQLearningModel
 from game_environment import Snake, SnakeNumpy
 from utils import visualize_game
 import json
@@ -32,12 +31,8 @@ n_actions = env.get_num_actions()
 
 # setup the agent
 # K.clear_session()
-agent = DeepQLearningAgent(board_size=board_size, frames=frames, 
+agent = DeepQLearningModel(board_size=board_size, frames=frames, 
                            n_actions=n_actions, buffer_size=10, version=version)
-# agent = PolicyGradientAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
-# agent = AdvantageActorCriticAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
-# agent = HamiltonianCycleAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
-# agent = BreadthFirstSearchAgent(board_size=board_size, frames=frames, n_actions=n_actions, buffer_size=10)
 
 for iteration in iteration_list:
     agent.load_model(file_path='models/{:s}'.format(version), iteration=iteration)
