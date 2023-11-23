@@ -31,8 +31,8 @@ with open("model_config/{:s}.json".format(version), "r") as f:
     buffer_size = m["buffer_size"]
 
 # define no of episodes, logging frequency
-episodes = 200  # 2 * (10**5)
-log_frequency = 50
+episodes = 2 * (10**5)
+log_frequency = 500
 games_eval = 8
 
 # setup the agent

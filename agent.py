@@ -226,6 +226,24 @@ class DeepQLearningAgent(nn.Module):
         """
         return self._gamma
 
+    def _prepare_input(self, board):
+        """Reshape input and normalize
+
+        Parameters
+        ----------
+        board : Numpy array
+            The board state to process
+
+        Returns
+        -------
+        board : Numpy array
+            Processed and normalized board
+        """
+        if board.ndim == 3:
+            board = np.expand_dims(board, axis=0)
+        board = self._normalize_board(board.copy())
+        return board.copy()
+
     def _get_model_outputs(self, board):
         """Get the model outputs
 
@@ -239,20 +257,38 @@ class DeepQLearningAgent(nn.Module):
         torch.Tensor
             The q-values
         """
+        # Normalize board
+        board = self._prepare_input(board)
 
         # Convert board to tensor
-        board = torch.from_numpy(board).float().unsqueeze(0)
+        board = torch.from_numpy(board).float()
 
         # Change dimensions to (batch, channels, height, width)
         board = board.permute(0, 3, 1, 2)
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        board = board.to(device)
+        board = board.to(self.device)
 
         # Get q-values
         q_values = self.forward(board)
 
         return q_values
+
+    def _normalize_board(self, board):
+        """Normalize the board before input to the network
+
+        Parameters
+        ----------
+        board : Numpy array
+            The board state to normalize
+
+        Returns
+        -------
+        board : Numpy array
+            The copy of board state after normalization
+        """
+        # return board.copy()
+        # return((board/128.0 - 1).copy())
+        return board.astype(np.float32) / 4.0
 
     def save_model(self, file_path="", iteration=None):
         """Save the current models to disk using tensorflow's

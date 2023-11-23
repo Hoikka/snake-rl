@@ -106,7 +106,7 @@ def play_game(
                     action = np.random.choice(n_actions, p=probs)
                 else:
                     # get action with best q value
-                    action = agent.move(s[0], env.get_values())
+                    action = agent.move(s, env.get_values())
             next_s, reward, done, info = env.step(action)
 
             if record and (info["termination_reason"] != "time_up"):
@@ -264,8 +264,7 @@ def play_game2(
                 action[action == 4] = 3
             else:
                 # get action with best q value
-                print(s.shape, s[0].shape)
-                action = agent.move(s[0], legal_moves, env.get_values())
+                action = agent.move(s, legal_moves, env.get_values())
         # take 1 step in env across all games
         next_s, reward, done, info, next_legal_moves = env.step(action)
 
