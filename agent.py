@@ -12,6 +12,7 @@ import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
 
 
 class DeepQLearningAgent(nn.Module):
@@ -51,9 +52,31 @@ class DeepQLearningAgent(nn.Module):
         self._use_target_net = use_target_net
         self._version = version
 
+        self.network = self._init_network()
+
+        # setting the device to do stuff on
+        print("Training on GPU:", torch.cuda.is_available())
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.network.to(self.device)
+
+        # RMS optimizer
+        self.optimizer = optim.RMSprop(self.network.parameters(), lr=0.0005)
+
+        # Huber loss function
+        self.loss_fn = nn.HuberLoss()
+
+        # Initialize the target network if required
+        if self._use_target_net:
+            self._target_net = (
+                self._init_network()
+            )  # Create a separate instance for the target network
+            self._target_net.to(self.device)
+            self._target_net.load_state_dict(self.network.state_dict())  # Copy weights
+
+    def _init_network(self):
         # Convolutional layers with relu activation
-        self.conv = nn.Sequential(
-            nn.Conv2d(n_frames, 16, kernel_size=3, padding=1),
+        conv = nn.Sequential(
+            nn.Conv2d(self._n_frames, 16, kernel_size=3, padding=1),
             nn.ReLU(),
             nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(),
@@ -62,31 +85,35 @@ class DeepQLearningAgent(nn.Module):
         )
 
         # Dense layers
-        self.fc = nn.Sequential(
+        fc = nn.Sequential(
             nn.Flatten(),
             nn.Linear(6400, 512),
             nn.ReLU(),
-            nn.Linear(512, n_actions),
+            nn.Linear(512, self._n_actions),
         )
+
+        # Return the sequential model
+        return nn.Sequential(conv, fc)
 
     def forward(self, x):
         # print(x.shape)
-        x = self.conv(x)
+        # x = self.conv(x)
         # print(x.shape)
-        x = x.reshape(x.size(0), -1)
+        # x = x.reshape(x.size(0), -1)
         # print(x.shape)
-        x = self.fc(x)
+        # x = self.fc(x)
         # print(x.shape)
-        return x
+        # Sinde network is a sequential model, we can just call it
+        return self.network(x)
 
     def train_agent(
         self,
         batch_size,
         num_games,
         reward_clip=True,
-        optimizer=None,
-        loss_fn=None,
-        device=None,
+        # optimizer=None,
+        # loss_fn=None,
+        # device=None,
     ):
         total_loss = 0.0
 
@@ -111,11 +138,11 @@ class DeepQLearningAgent(nn.Module):
             )  # Same for next_states
 
             # Convert to PyTorch tensors and send to the appropriate device
-            states = torch.tensor(states, dtype=torch.float32).to(device)
-            next_states = torch.tensor(next_states, dtype=torch.float32).to(device)
-            actions = torch.tensor(actions, dtype=torch.long).to(device)
-            rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
-            done = torch.tensor(done, dtype=torch.float32).to(device)
+            states = states.clone().detach().to(self.device).float()
+            next_states = next_states.clone().detach().to(self.device).float()
+            actions = torch.tensor(actions, dtype=torch.long).to(self.device)
+            rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
+            done = torch.tensor(done, dtype=torch.float32).to(self.device)
 
             # Compute Q values for current states
             curr_Q_values = self.forward(states)
@@ -133,12 +160,12 @@ class DeepQLearningAgent(nn.Module):
             expected_Q_values = expected_Q_values.expand(-1, 4)
 
             # Compute loss
-            loss = loss_fn(curr_Q_values, expected_Q_values.detach())
+            loss = self.loss_fn(curr_Q_values, expected_Q_values.detach())
 
             # Backpropagation and optimization
-            optimizer.zero_grad()
+            self.optimizer.zero_grad()
             loss.backward()
-            optimizer.step()
+            self.optimizer.step()
 
             total_loss += loss.item()
 
@@ -184,7 +211,7 @@ class DeepQLearningAgent(nn.Module):
         return action
         """
 
-        model_outputs = self._get_model_outputs(board[0])
+        model_outputs = self._get_model_outputs(board)
         model_outputs = model_outputs.cpu().detach().numpy()
 
         return np.argmax(np.where(legal_moves == 1, model_outputs, -np.inf), axis=1)
@@ -244,11 +271,14 @@ class DeepQLearningAgent(nn.Module):
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
             iteration = 0
-        self._model.save_weights("{}/model_{:04d}.h5".format(file_path, iteration))
+        model_save_path = "{}/model_{:04d}.pt".format(file_path, iteration)
+        torch.save(self.network.state_dict(), model_save_path)
+
         if self._use_target_net:
-            self._target_net.save_weights(
-                "{}/model_{:04d}_target.h5".format(file_path, iteration)
+            target_model_save_path = "{}/model_{:04d}_target.pt".format(
+                file_path, iteration
             )
+            torch.save(self._target_net.state_dict(), target_model_save_path)
 
     def load_model(self, file_path="", iteration=None):
         """load any existing models, if available"""
@@ -272,11 +302,14 @@ class DeepQLearningAgent(nn.Module):
             assert isinstance(iteration, int), "iteration should be an integer"
         else:
             iteration = 0
-        self._model.load_weights("{}/model_{:04d}.h5".format(file_path, iteration))
+        model_load_path = "{}/model_{:04d}.pt".format(file_path, iteration)
+        self.network.load_state_dict(torch.load(model_load_path))
+
         if self._use_target_net:
-            self._target_net.load_weights(
-                "{}/model_{:04d}_target.h5".format(file_path, iteration)
+            target_model_load_path = "{}/model_{:04d}_target.pt".format(
+                file_path, iteration
             )
+            self._target_net.load_state_dict(torch.load(target_model_load_path))
         # print("Couldn't locate models at {}, check provided path".format(file_path))
 
     def update_target_net(self):
@@ -285,7 +318,8 @@ class DeepQLearningAgent(nn.Module):
         This should not be updated very frequently
         """
         if self._use_target_net:
-            self._target_net.set_weights(self._model.get_weights())
+            self._target_net.load_state_dict(self.network.state_dict())
+            # self._target_net.set_weights(self._model.get_weights())
 
     def reset_buffer(self, buffer_size=None):
         """Reset current buffer
