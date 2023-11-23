@@ -8,8 +8,8 @@ import os
 import sys
 
 # some global variables
-version = "v15.1"
-iteration = 188000
+version = "pytorch"
+iteration = 200
 
 with open("model_config/{:s}.json".format(version), "r") as f:
     m = json.loads(f.read())

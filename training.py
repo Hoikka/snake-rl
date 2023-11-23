@@ -31,8 +31,8 @@ with open("model_config/{:s}.json".format(version), "r") as f:
     buffer_size = m["buffer_size"]
 
 # define no of episodes, logging frequency
-episodes = 2 * (10**5)
-log_frequency = 500
+episodes = 200  # 2 * (10**5)
+log_frequency = 50
 games_eval = 8
 
 # setup the agent
@@ -146,6 +146,8 @@ model_logs = {
 }
 for index in tqdm(range(episodes)):
     if agent_type in ["DeepQLearningAgent"]:
+        agent.train()
+
         # make small changes to the buffer and slowly train
         _, _, _ = play_game2(
             env,
@@ -171,6 +173,8 @@ for index in tqdm(range(episodes)):
 
     # check performance every once in a while
     if (index + 1) % log_frequency == 0:
+        agent.eval()
+
         # keep track of agent rewards_history
         current_rewards, current_lengths, current_games = play_game2(
             env2,
