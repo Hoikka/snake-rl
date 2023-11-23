@@ -46,16 +46,16 @@ agent = DeepQLearningAgent(
 # agent.print_models()
 
 # setting the device to do stuff on
-# print("Training on GPU:", torch.cuda.is_available())
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-# agent.to(device)
+print("Training on GPU:", torch.cuda.is_available())
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+agent.to(device)
 
 
 # RMS optimizer
-# optimizer = optim.RMSprop(agent.parameters(), lr=0.0005)
+optimizer = optim.RMSprop(agent.parameters(), lr=0.0005)
 
 # Huber loss function
-# loss_fn = nn.HuberLoss()
+loss_fn = nn.HuberLoss()
 
 # check in the same order as class hierarchy
 if isinstance(agent, DeepQLearningAgent):
@@ -164,6 +164,9 @@ for index in tqdm(range(episodes)):
             batch_size=64,
             num_games=n_games_training,
             reward_clip=True,
+            optimizer=optimizer,
+            loss_fn=loss_fn,
+            device=device,
         )
 
     # check performance every once in a while

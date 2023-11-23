@@ -12,10 +12,9 @@ import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
 
 
-class Agent:
+class DeepQLearningAgent(nn.Module):
     def __init__(
         self,
         board_size=10,
@@ -26,6 +25,8 @@ class Agent:
         use_target_net=True,
         version="pytorch",
     ):
+        super(DeepQLearningAgent, self).__init__()
+
         """Initialize the model
 
         Parameters
@@ -50,7 +51,43 @@ class Agent:
         self._use_target_net = use_target_net
         self._version = version
 
-    def train_agent(self, batch_size, num_games, reward_clip=True):
+        # Convolutional layers with relu activation
+        self.conv = nn.Sequential(
+            nn.Conv2d(n_frames, 16, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.ReLU(),
+        )
+
+        # Dense layers
+        self.fc = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(6400, 512),
+            nn.ReLU(),
+            nn.Linear(512, n_actions),
+        )
+
+    def forward(self, x):
+        # print(x.shape)
+        x = self.conv(x)
+        # print(x.shape)
+        x = x.reshape(x.size(0), -1)
+        # print(x.shape)
+        x = self.fc(x)
+        # print(x.shape)
+        return x
+
+    def train_agent(
+        self,
+        batch_size,
+        num_games,
+        reward_clip=True,
+        optimizer=None,
+        loss_fn=None,
+        device=None,
+    ):
         total_loss = 0.0
 
         for i in range(num_games):
@@ -74,11 +111,11 @@ class Agent:
             )  # Same for next_states
 
             # Convert to PyTorch tensors and send to the appropriate device
-            states = torch.tensor(states, dtype=torch.float32).to(self.device)
-            next_states = torch.tensor(next_states, dtype=torch.float32).to(self.device)
-            actions = torch.tensor(actions, dtype=torch.long).to(self.device)
-            rewards = torch.tensor(rewards, dtype=torch.float32).to(self.device)
-            done = torch.tensor(done, dtype=torch.float32).to(self.device)
+            states = torch.tensor(states, dtype=torch.float32).to(device)
+            next_states = torch.tensor(next_states, dtype=torch.float32).to(device)
+            actions = torch.tensor(actions, dtype=torch.long).to(device)
+            rewards = torch.tensor(rewards, dtype=torch.float32).to(device)
+            done = torch.tensor(done, dtype=torch.float32).to(device)
 
             # Compute Q values for current states
             curr_Q_values = self.forward(states)
@@ -96,12 +133,12 @@ class Agent:
             expected_Q_values = expected_Q_values.expand(-1, 4)
 
             # Compute loss
-            loss = self.loss(curr_Q_values, expected_Q_values.detach())
+            loss = loss_fn(curr_Q_values, expected_Q_values.detach())
 
             # Backpropagation and optimization
-            self.optimizer.zero_grad()
+            optimizer.zero_grad()
             loss.backward()
-            self.optimizer.step()
+            optimizer.step()
 
             total_loss += loss.item()
 
@@ -367,62 +404,3 @@ class Agent:
             point value corresponding to the row and col values
         """
         return row * self._board_size + col
-
-
-class DeepQLearningAgent(nn.Module, Agent):
-    def __init__(
-        self,
-        board_size=10,
-        n_frames=4,
-        n_actions=3,
-        buffer_size=1000,
-        gamma=0.99,
-        use_target_net=True,
-        version="pytorch",
-    ):
-        nn.Module.__init__(self)
-        Agent.__init__(
-            self,
-            board_size=board_size,
-            n_frames=n_frames,
-            n_actions=n_actions,
-            buffer_size=buffer_size,
-            gamma=gamma,
-            use_target_net=use_target_net,
-            version=version,
-        )
-
-        # Convolutional layers with relu activation
-        self.conv = nn.Sequential(
-            nn.Conv2d(n_frames, 16, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(16, 32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.ReLU(),
-        )
-
-        # Dense layers
-        self.fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(6400, 512),
-            nn.ReLU(),
-            nn.Linear(512, n_actions),
-        )
-
-        self.optimizer = optim.RMSprop(self.parameters(), lr=0.0005)
-        self.loss = nn.HuberLoss()
-
-        print("Training on GPU:", torch.cuda.is_available())
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.to(self.device)
-
-    def forward(self, x):
-        # print(x.shape)
-        x = self.conv(x)
-        # print(x.shape)
-        x = x.reshape(x.size(0), -1)
-        # print(x.shape)
-        x = self.fc(x)
-        # print(x.shape)
-        return x
