@@ -31,34 +31,37 @@ with open("model_config/{:s}.json".format(version), "r") as f:
     buffer_size = m["buffer_size"]
 
 # define no of episodes, logging frequency
-episodes = 2 * (10**5)
-log_frequency = 500
+episodes = 200  # 2 * (10**5)
+log_frequency = 50
 games_eval = 8
 
 # setup the agent
 agent = DeepQLearningAgent(
     board_size=board_size,
-    frames=frames,
+    n_frames=frames,
     n_actions=n_actions,
     buffer_size=buffer_size,
-    version=version,
+    # version=version,
 )
 # agent.print_models()
 
-# RMS optimizer
-optimizer = optim.RMSprop(agent.parameters(), lr=0.0005)
+# setting the device to do stuff on
+# print("Training on GPU:", torch.cuda.is_available())
+# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# agent.to(device)
 
-# loss function
-loss_fn = nn.SmoothL1Loss()  # Huber loss
+
+# RMS optimizer
+# optimizer = optim.RMSprop(agent.parameters(), lr=0.0005)
+
+# Huber loss function
+# loss_fn = nn.HuberLoss()
 
 # check in the same order as class hierarchy
 if isinstance(agent, DeepQLearningAgent):
     agent_type = "DeepQLearningAgent"
 print("Agent is {:s}".format(agent_type))
 
-# setting the device to do stuff on
-print('Training on GPU:', torch.cuda.is_available())
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # setup the epsilon range and decay rate for epsilon
 # define rewrad type and update frequency, see utils for more details
@@ -158,7 +161,9 @@ for index in tqdm(range(episodes)):
             stateful=True,
         )
         loss = agent.train_agent(
-            batch_size=64, num_games=n_games_training, reward_clip=True
+            batch_size=64,
+            num_games=n_games_training,
+            reward_clip=True,
         )
 
     # check performance every once in a while
@@ -176,10 +181,10 @@ for index in tqdm(range(episodes)):
             total_frames=-1,
             total_games=games_eval,
         )
-
+        """
         # Sample a minibatch from the replay buffer (adapt this to your buffer implementation)
         states, actions, rewards, next_states, dones = agent.replay_buffer.sample(64)
-        
+
         # Convert to PyTorch tensors
         states = torch.tensor(states, dtype=torch.float32)
         actions = torch.tensor(actions, dtype=torch.int64).unsqueeze(-1)
@@ -189,18 +194,20 @@ for index in tqdm(range(episodes)):
 
         # Compute Q values for current states
         current_q_values = agent(states).gather(1, actions).squeeze(-1)
-        
+
         # Compute the expected Q values
         next_q_values = agent.target_net(next_states).max(1)[0].detach()
         expected_q_values = rewards + agent.gamma * next_q_values * (1 - dones)
-        
+
         # Compute loss
         loss = loss_fn(current_q_values, expected_q_values)
-        
+
         # Zero gradients, perform a backward pass, and update the weights.
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
+        """
 
         model_logs["iteration"].append(index + 1)
         model_logs["reward_mean"].append(round(int(current_rewards) / current_games, 2))
