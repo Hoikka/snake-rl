@@ -34,10 +34,18 @@ class DeepQLearningAgent(nn.Module):
         ----------
         board_size : int, optional
             The board size of the environment
-        frames : int, optional
+        n_frames : int, optional
             The number of frames to keep in the state
         n_actions : int, optional
             The number of actions available in the environment
+        buffer_size : int, optional
+            The size of the replay buffer, by default 1000
+        gamma : float, optional
+            The discount factor, by default 0.99
+        use_target_net : bool, optional
+            Whether to use a target network, by default True
+        version : str, optional
+            The version of the agent, by default "pytorch"
         """
 
         self._board_size = board_size
@@ -74,6 +82,14 @@ class DeepQLearningAgent(nn.Module):
             self._target_net.load_state_dict(self.network.state_dict())  # Copy weights
 
     def _init_network(self):
+        """
+        Initialize the network
+
+        Returns
+        -------
+        nn.Sequential
+            The network
+        """
         # Convolutional layers with relu activation
         conv = nn.Sequential(
             nn.Conv2d(self._n_frames, 16, kernel_size=3, padding=1),
@@ -96,14 +112,20 @@ class DeepQLearningAgent(nn.Module):
         return nn.Sequential(conv, fc)
 
     def forward(self, x):
-        # print(x.shape)
-        # x = self.conv(x)
-        # print(x.shape)
-        # x = x.reshape(x.size(0), -1)
-        # print(x.shape)
-        # x = self.fc(x)
-        # print(x.shape)
-        # Sinde network is a sequential model, we can just call it
+        """
+        Forward pass of the network
+
+        Parameters
+        ----------
+        x : torch.Tensor
+            The input tensor
+
+        Returns
+        -------
+        torch.Tensor
+            The output tensor
+        """
+
         return self.network(x)
 
     def train_agent(
@@ -111,10 +133,22 @@ class DeepQLearningAgent(nn.Module):
         batch_size,
         num_games,
         reward_clip=True,
-        # optimizer=None,
-        # loss_fn=None,
-        # device=None,
     ):
+        """
+        Train the agent for a given number of games
+        Parameters
+        ----------
+        batch_size : int
+            The batch size to use for training
+        num_games : int
+            The number of games to train the agent for
+        reward_clip : bool, optional
+            Whether to clip the rewards to [-1, 1], by default True
+
+        Returns
+        -------
+        average_loss : float
+        """
         total_loss = 0.0
 
         for i in range(num_games):
