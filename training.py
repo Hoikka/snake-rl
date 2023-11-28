@@ -12,8 +12,6 @@ from game_environment import Snake, SnakeNumpy
 from agent import DeepQLearningAgent
 import json
 import torch
-import torch.nn as nn
-import torch.optim as optim
 
 # some global variables
 torch.manual_seed(42)
@@ -62,12 +60,9 @@ if agent_type in ["DeepQLearningAgent"]:
     if supervised:
         # lower the epsilon since some starting policy has already been trained
         epsilon = 0.01
-        # load the existing model from a supervised method
-        # or some other pretrained model
+        # load the existing model
         agent.load_model(file_path="models/{:s}".format(version))
-        # agent.set_weights_trainable()
 
-# decay = np.exp(np.log((epsilon_end/epsilon))/episodes)
 
 # use only for DeepQLearningAgent
 if agent_type in ["DeepQLearningAgent"]:
@@ -154,9 +149,6 @@ for index in tqdm(range(episodes)):
             batch_size=64,
             num_games=n_games_training,
             reward_clip=True,
-            # optimizer=optimizer,
-            # loss_fn=loss_fn,
-            # device=device,
         )
 
     # check performance every once in a while
